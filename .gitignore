@@ -1,0 +1,5 @@
+Makefile
+*.moc
+luks-dictionary
+moc_*
+*.o
