@@ -54,6 +54,10 @@ void TryDictionary::setDevice(const QString& device) {
     this->device = device;
 }
 
+void TryDictionary::setProgress(bool showProgress) {
+    this->showProgress = showProgress;
+}
+
 qint64 TryDictionary::passwordCount(const QString& passwordFilename) {
     QFile passwordFile(passwordFilename);
     if (!passwordFile.open(QIODevice::ReadOnly | QIODevice::Text))
@@ -70,17 +74,57 @@ qint64 TryDictionary::passwordCount(const QString& passwordFilename) {
     return count;
 }
 
+void TryDictionary::displaySummary() {
+    if (! this->showProgress)
+        return;
+    std::cout << "passwordFile   : " << this->passwordFilename.toStdString() << std::endl;
+    std::cout << "failFilename   : " << this->failFilename.toStdString() << std::endl;
+    std::cout << "total passwords: " << this->totalPasswords << std::endl;
+}
+
+void TryDictionary::displayFailProgress(const QString& password) {
+    if (! this->showProgress)
+        return;
+
+    qint64 totalElapsedMs = this->totalTimer.elapsed();
+    qint64 avg = (totalElapsedMs / this->triedCount);
+    double percent = ((this->totalPasswords - this->triedCount) / (this->totalPasswords * 1.0));
+    qint64 etcMs = ((this->totalPasswords - this->triedCount) * avg);
+    QDateTime now = QDateTime::currentDateTime();
+    QDateTime etc = now.addMSecs(etcMs);
+
+    std::cout << "failed: " << password.toStdString() << " | "
+              << this->triedCount << " of " << this->totalPasswords << " | "
+              << percent << "% | "
+              << this->elapsedTimer.elapsed() << " ms | "
+              << avg << " ms/check | "
+              << etc.toString("dd-MM-yyyy hh:mm:ss.zzz").toStdString()
+              << std::endl;
+}
+
+void TryDictionary::displaySuccessProgress(const QString& password) {
+    if (! this->showProgress)
+        return;
+    std::cout << "Success password: " << std::endl
+              << password.toStdString() << std::endl;
+}
+
+void TryDictionary::displayDone() {
+    if (! this->showProgress)
+        return;
+
+    std::cout << std::endl
+              << "Total elapsed " << this->totalTimer.elapsed() << " ms" << std::endl
+              << "Done." << std::endl;
+}
+
 void TryDictionary::run() {
-    std::cout << "passwordFile: " << this->passwordFilename.toStdString() << std::endl;
-    std::cout << "failFilename: " << this->failFilename.toStdString() << std::endl;
-
-    qint64 total = passwordCount(this->passwordFilename);
-    if (total < 0)
+    this->totalPasswords = passwordCount(this->passwordFilename);
+    if (this->totalPasswords <= 0)
         emit finished();
+    this->triedCount = 0;
 
-    QElapsedTimer totalTimer;
-    QElapsedTimer timer;
-    qint64 count = 1;
+    displaySummary();
 
     QFile passwordFile(this->passwordFilename);
     if (!passwordFile.open(QIODevice::ReadOnly | QIODevice::Text))
@@ -92,16 +136,15 @@ void TryDictionary::run() {
         emit finished();
     QTextStream failOut(&failFile);
 
-    totalTimer.start();
+    this->totalTimer.start();
     QString password = in.readLine();
     while (! password.isNull()) {
-        timer.start();
+        elapsedTimer.start();
         bool wasSuccess = tryPassword(password);
-        qint64 elapsedMs = timer.elapsed();
-        qint64 totalElapsedMs = totalTimer.elapsed();
+        this->triedCount++;
 
         if (wasSuccess) {
-            std::cout << "Success password: " << password.toStdString() << std::endl;
+            displaySuccessProgress(password);
 
             QString successFilename = "success_password.txt";
             QFile successFile(successFilename);
@@ -113,32 +156,16 @@ void TryDictionary::run() {
             successFile.close();
             break;
         } else {
-            QDateTime now = QDateTime::currentDateTime();
-            qint64 avg = (totalElapsedMs / count);
-
-            double percent = ((total - count) / (total * 1.0));
-
-            qint64 etcMs = ((total - count) * avg);
-            QDateTime etc = now.addMSecs(etcMs);
-
-            std::cout << "failed: " << password.toStdString() << " | "
-                      << count << " of " << total << " | "
-                      << percent << "% | "
-                      << elapsedMs << " ms | "
-                      << avg << " ms/check | "
-                      << etc.toString("dd-MM-yyyy hh:mm:ss.zzz").toStdString()
-                      << std::endl;
+            displayFailProgress(password);
             failOut << password << endl;
         }
 
         password = in.readLine();
-        count++;
     }
     passwordFile.close();
     failFile.close();
 
-    std::cout << "done." << std::endl;
-
+    displayDone();
     emit finished();
 }
 

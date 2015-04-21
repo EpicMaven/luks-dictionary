@@ -6,10 +6,17 @@
 #include <iostream>
 #include <QDebug>
 #include <QTimer>
+#include <QFileInfo>
 
-void usage() {
-    std::cout << "luks-dictionary <password file> <fail file> <device/header>" << std::endl;
-    std::cout << std::endl;
+bool fileExists(const QString& filename) {
+    bool exists = false;
+    QFileInfo checkFile(filename);
+
+    if (checkFile.exists() && checkFile.isFile()) {
+        exists = true;
+    }
+
+    return exists;
 }
 
 int main(int argc, char *argv[])
@@ -19,32 +26,61 @@ int main(int argc, char *argv[])
     QCoreApplication::setApplicationVersion("1.0");
 
     QCommandLineParser parser;
-    parser.setApplicationDescription("LUKS Dictionary password tester");
+    parser.setApplicationDescription("LUKS dictionary based password tester");
+    parser.addPositionalArgument("passwordFilename", QCoreApplication::translate("main", "Password dictionary filename."));
+    parser.addPositionalArgument("failFilename", QCoreApplication::translate("main", "Fail log filename."));
+    parser.addPositionalArgument("device", QCoreApplication::translate("main", "LUKS device or header (e.g., /dev/sda1, backup-headers)"));
+
+    QCommandLineOption progressOption(QStringList() << "p" << "progress", QCoreApplication::translate("main", "show progress. Default: true"));
+    parser.addOption(progressOption);
+
+    QCommandLineOption noProgressOption(QStringList() << "P" << "no-progress", QCoreApplication::translate("main", "hide progress."));
+    parser.addOption(noProgressOption);
+
     parser.addHelpOption();
     parser.addVersionOption();
-    parser.addPositionalArgument("passwordFilename", QCoreApplication::translate("main", "Password filename."));
-    parser.addPositionalArgument("failFilename", QCoreApplication::translate("main", "Fail filename."));
-    parser.addPositionalArgument("device", QCoreApplication::translate("main", "Device/header"));
 
-    // A boolean option with a single name (-p)
-    QCommandLineOption showProgressOption(QStringList() << "p" << "progress", QCoreApplication::translate("main", "Show progress"));
-    parser.addOption(showProgressOption);
 
     // Process the actual command line arguments given by the user
     parser.process(app);
 
     const QStringList args = parser.positionalArguments();
-    // source is args.at(0), destination is args.at(1)
 
-//    bool showProgress = parser.isSet(showProgressOption);
+    bool showProgress = true;
+    if (parser.isSet(progressOption)) {
+        showProgress = true;
+    } else if (parser.isSet(noProgressOption)) {
+        showProgress = false;
+    }
 
+    if (args.size() < 1) {
+        std::cout << "Must specify password dictionary file" << std::endl;
+        parser.showHelp();
+        app.quit();
+    }
     QString passwordFilename = args.at(0);
-    QString failFilename = args.at(1);
-    QString device = args.at(2);
+    if (! fileExists(passwordFilename)) {
+        std::cout << "Password dictionary file does not exist" << std::endl;
+        parser.showHelp();
+        app.quit();
+    }
 
-    if (passwordFilename == NULL || passwordFilename.size() <= 0) {
-        std::cout << "Must specify password file" << std::endl;
-        std::cout << "luks-dictionary <password file> <fail file> <device/header>" << std::endl;
+    if (args.size() < 2) {
+        std::cout << "Must specify fail log file" << std::endl;
+        parser.showHelp();
+        app.quit();
+    }
+    QString failFilename = args.at(1);
+
+    if (args.size() < 3) {
+        std::cout << "Must specify LUKS device or header file" << std::endl;
+        parser.showHelp();
+        app.quit();
+    }
+    QString device = args.at(2);
+    if (! fileExists(device)) {
+        std::cout << "LUKS device or header file does not exist" << std::endl;
+        parser.showHelp();
         app.quit();
     }
 
@@ -52,6 +88,7 @@ int main(int argc, char *argv[])
     tryDictionary->setPasswordFilename(passwordFilename);
     tryDictionary->setFailFilename(failFilename);
     tryDictionary->setDevice(device);
+    tryDictionary->setProgress(showProgress);
 
     QObject::connect(tryDictionary, SIGNAL(finished()), &app, SLOT(quit()));
     QTimer::singleShot(0, tryDictionary, SLOT(run()));
