@@ -88,14 +88,23 @@ void TryDictionary::displayFailProgress(const QString& password) {
 
     qint64 totalElapsedMs = this->totalTimer.elapsed();
     qint64 avg = (totalElapsedMs / this->triedCount);
+
     double percent = ((this->totalPasswords - this->triedCount) / (this->totalPasswords * 1.0));
+    QString percentStr;
+    percentStr.sprintf("%.6f", percent);
+    percentStr = percentStr.rightJustified(10, ' ');
+
+    QString triedStr;
+    triedStr.setNum(this->triedCount);
+    triedStr = triedStr.rightJustified(this->totalPasswordsStrLength, ' ');
+
     qint64 etcMs = ((this->totalPasswords - this->triedCount) * avg);
     QDateTime now = QDateTime::currentDateTime();
     QDateTime etc = now.addMSecs(etcMs);
 
     std::cout << "failed: " << password.toStdString() << " | "
-              << this->triedCount << " of " << this->totalPasswords << " | "
-              << percent << "% | "
+              << triedStr.toStdString() << " of " << this->totalPasswords << " | "
+              << percentStr.toStdString() << "% | "
               << this->elapsedTimer.elapsed() << " ms | "
               << avg << " ms/check | "
               << etc.toString("dd-MM-yyyy hh:mm:ss.zzz").toStdString()
@@ -122,6 +131,11 @@ void TryDictionary::run() {
     this->totalPasswords = passwordCount(this->passwordFilename);
     if (this->totalPasswords <= 0)
         emit finished();
+
+    QString totalStr;
+    totalStr.setNum(this->totalPasswords);
+    this->totalPasswordsStrLength = totalStr.size();
+
     this->triedCount = 0;
 
     displaySummary();

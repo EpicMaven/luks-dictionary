@@ -37,6 +37,7 @@ private:
     bool showProgress;
 
     qint64 totalPasswords;
+    qint32 totalPasswordsStrLength;
     qint64 triedCount;
 
     QElapsedTimer totalTimer;
