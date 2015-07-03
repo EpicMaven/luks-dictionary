@@ -89,7 +89,7 @@ void TryDictionary::displayFailProgress(const QString& password) {
     qint64 totalElapsedMs = this->totalTimer.elapsed();
     qint64 avg = (totalElapsedMs / this->triedCount);
 
-    double percent = ((this->totalPasswords - this->triedCount) / (this->totalPasswords * 1.0));
+    double percent = (this->triedCount/(this->totalPasswords * 1.0)) * 100.0;
     QString percentStr;
     percentStr.sprintf("%.6f", percent);
     percentStr = percentStr.rightJustified(10, ' ');
@@ -187,4 +187,3 @@ TryDictionary::~TryDictionary()
 {
 
 }
-
