@@ -3,3 +3,4 @@ Makefile
 luks-dictionary
 moc_*
 *.o
+/.qmake.stash
